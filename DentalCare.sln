@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{791F4D19-2A0B-41AE-8407-7D95073CA9C7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DentalCare.Application", "src\DentalCare.Application\DentalCare.Application.csproj", "{07B7ABC0-5E90-4207-80AB-DB133EF4BAA0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DentalCare.Domain", "src\DentalCare.Domain\DentalCare.Domain.csproj", "{E841E770-9893-4937-8E97-BD319DE08CDF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DentalCare.Infrastructure", "src\DentalCare.Infrastructure\DentalCare.Infrastructure.csproj", "{E2B37102-F774-4F7D-9871-54F8F490B7CC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DentalCare.Web", "src\DentalCare.Web\DentalCare.Web.csproj", "{734CE061-A4D7-4E51-B5FE-96CCF63C1036}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{07B7ABC0-5E90-4207-80AB-DB133EF4BAA0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07B7ABC0-5E90-4207-80AB-DB133EF4BAA0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07B7ABC0-5E90-4207-80AB-DB133EF4BAA0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07B7ABC0-5E90-4207-80AB-DB133EF4BAA0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E841E770-9893-4937-8E97-BD319DE08CDF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E841E770-9893-4937-8E97-BD319DE08CDF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E841E770-9893-4937-8E97-BD319DE08CDF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E841E770-9893-4937-8E97-BD319DE08CDF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E2B37102-F774-4F7D-9871-54F8F490B7CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E2B37102-F774-4F7D-9871-54F8F490B7CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E2B37102-F774-4F7D-9871-54F8F490B7CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E2B37102-F774-4F7D-9871-54F8F490B7CC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{734CE061-A4D7-4E51-B5FE-96CCF63C1036}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{734CE061-A4D7-4E51-B5FE-96CCF63C1036}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{734CE061-A4D7-4E51-B5FE-96CCF63C1036}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{734CE061-A4D7-4E51-B5FE-96CCF63C1036}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{07B7ABC0-5E90-4207-80AB-DB133EF4BAA0} = {791F4D19-2A0B-41AE-8407-7D95073CA9C7}
+		{E841E770-9893-4937-8E97-BD319DE08CDF} = {791F4D19-2A0B-41AE-8407-7D95073CA9C7}
+		{E2B37102-F774-4F7D-9871-54F8F490B7CC} = {791F4D19-2A0B-41AE-8407-7D95073CA9C7}
+		{734CE061-A4D7-4E51-B5FE-96CCF63C1036} = {791F4D19-2A0B-41AE-8407-7D95073CA9C7}
+	EndGlobalSection
+EndGlobal
