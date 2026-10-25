@@ -3,53 +3,133 @@
 Trabajo Integrador Final – Tecnicatura Universitaria en Programación (UTN FRRo).
 Integrantes: Amaya Lara, Burgos Benjamín, Mendez Matías, Wilson Sebastián.
 
+API REST para gestionar los turnos de un consultorio odontológico: pacientes, odontólogos,
+consultorios, tratamientos y turnos, con autenticación JWT por roles.
+
 ## Arquitectura (Clean Architecture)
 
 | Proyecto | Responsabilidad |
 |---|---|
-| `DentalCare.Domain` | Entidades, enums e interfaces de repositorios. No depende de nadie. |
-| `DentalCare.Application` | Interfaces y servicios de negocio. Depende de Domain. |
-| `DentalCare.Infrastructure` | `DentalCareDbContext` (EF Core + MySQL/Pomelo), repositorios (genérico + específicos). |
-| `DentalCare.Web` | Controladores, `Program.cs`, configuración JWT. |
+| `DentalCare.Domain` | Entidades, enum `EstadoTurno`, roles, excepciones de dominio e interfaces de repositorios. No depende de nadie. |
+| `DentalCare.Application` | DTOs, interfaces y servicios de negocio (reglas de turnos, autenticación). Depende de Domain. |
+| `DentalCare.Infrastructure` | `DentalCareDbContext` (EF Core + MySQL/Pomelo, code first), repositorio genérico + específicos, migrations, JWT, hashing de contraseñas y cliente HTTP de feriados. |
+| `DentalCare.Web` | Controladores, `Program.cs`, manejo global de errores, Swagger. |
+| `tests/DentalCare.Tests` | Tests de servicios e integración (xUnit + SQLite en memoria). |
+| `infra/main.bicep` | Infraestructura de Azure (Web App, MySQL, Key Vault). |
+| `.github/workflows/ci-cd.yml` | Pipeline de CI/CD. |
 
 Entidades (según el diagrama de clases corregido): `Paciente`, `Odontologo`, `Consultorio`, `Turno` y `Tratamiento`.
 La relación Turno–Tratamiento es N:N; EF Core crea la tabla intermedia `turno_tratamiento` sin entidad propia.
 
-## Requisitos
+## Cumplimiento de requisitos (Aprobación Directa)
 
-- .NET 8 SDK
-- MySQL 8
-- Herramienta de EF: `dotnet tool install --global dotnet-ef --version 8.0.11`
+| Requisito | Dónde |
+|---|---|
+| Repositorios, servicios y controladores completos e inyectados | `Infrastructure/Repositories`, `Application/Services`, `Web/Controllers`, `DependencyInjection.cs` de cada capa |
+| Persistencia en BD relacional, code first con EF Core | `DentalCareDbContext` + `Migrations/` (MySQL) |
+| Repositorio genérico | `IRepository<T>` / `Repository<T>`; los específicos heredan de él |
+| CI/CD con GitHub Actions que deploya API y recursos en Azure | `.github/workflows/ci-cd.yml` + `infra/main.bicep` |
+| Servicio de terceros con HttpClient Factory | `FeriadoService` (cliente tipado, API pública [Nager.Date](https://date.nager.at)). Se usa en `GET /api/feriados/{anio}` y al reservar turnos (no se permiten turnos en feriados). |
+| Autenticación funcional, secret JWT en variable de ambiente / Key Vault | `AuthController`, `JwtTokenGenerator`. En Azure `Jwt__Key` es una referencia a un secreto de Key Vault. |
 
-## Primera puesta en marcha
+## Roles y endpoints
 
-1. Ajustar la cadena de conexión en `src/DentalCare.Web/appsettings.json`
-   (o con la variable de ambiente `ConnectionStrings__DefaultConnection`).
-2. Generar la migration inicial (crea la carpeta `Migrations` con el snapshot):
+Login con email y contraseña. Hay dos roles: **Odontologo** (personal del consultorio, administra todo)
+y **Paciente** (se registra solo y gestiona sus propios turnos).
+
+| Método | Ruta | Acceso |
+|---|---|---|
+| POST | `/api/auth/login` | Anónimo (CU01) |
+| POST | `/api/auth/register` | Anónimo – registra un paciente (CU02) |
+| POST | `/api/auth/forgot-password` · `/api/auth/reset-password` | Anónimo (CU03) |
+| GET | `/api/auth/me` | Autenticado |
+| GET/POST/PUT/DELETE | `/api/odontologos`, `/api/consultorios`, `/api/tratamientos` | Lectura: autenticado · Escritura: Odontologo |
+| GET/POST/PUT/DELETE | `/api/pacientes` | Odontologo; un paciente puede ver/editar solo sus datos |
+| GET | `/api/turnos?pacienteId&odontologoId&consultorioId&desde&hasta&estado` | Autenticado (el paciente solo ve sus turnos) |
+| POST | `/api/turnos` | Autenticado |
+| PATCH | `/api/turnos/{id}/estado` | Odontologo (el paciente solo puede cancelar) |
+| POST | `/api/turnos/{id}/cancelar` | Dueño del turno u Odontologo |
+| DELETE | `/api/turnos/{id}` | Odontologo |
+| GET | `/api/feriados/{anio}` · `/api/feriados/verificar?fecha=` | Anónimo |
+| GET | `/health` | Anónimo (incluye chequeo de la BD) |
+
+### Reglas de negocio de los turnos
+
+- No se reservan turnos en el pasado, los domingos, en feriados nacionales ni fuera del horario 08:00–20:00.
+- Un odontólogo y un consultorio no pueden tener dos turnos superpuestos (los cancelados no ocupan lugar).
+- Un turno incluye 1..* tratamientos; si no se indica la duración se usa la suma de las duraciones estimadas.
+- Ciclo de vida: `Pendiente → Confirmado | Cancelado`, `Confirmado → Finalizado | Ausente | Cancelado`.
+  `Finalizado` y `Ausente` solo se pueden marcar cuando el turno ya ocurrió.
+- No se pueden borrar pacientes, odontólogos, consultorios ni tratamientos con turnos asociados.
+
+Los errores se devuelven como `ProblemDetails`: 400 validación, 401 sin login, 403 sin permiso,
+404 no encontrado, 409 regla de negocio.
+
+## Ejecución local
+
+Requisitos: .NET 8 SDK, MySQL 8 y `dotnet tool install --global dotnet-ef --version 8.0.11`.
+
+1. Guardar la cadena de conexión real en los user-secrets (no se commitea):
 
    ```bash
-   dotnet ef migrations add InitialCreate \
-     --project src/DentalCare.Infrastructure \
-     --startup-project src/DentalCare.Web \
-     --output-dir Migrations
+   dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;Port=3306;Database=dentalcare;User=root;Password=TU_PASSWORD;" --project src/DentalCare.Web
    ```
 
-3. Aplicar la migration a la base:
+2. Ejecutar la API (aplica las migrations pendientes al arrancar y crea el odontólogo inicial):
 
    ```bash
-   dotnet ef database update \
-     --project src/DentalCare.Infrastructure \
-     --startup-project src/DentalCare.Web
+   dotnet run --project src/DentalCare.Web --launch-profile http
    ```
 
-4. Ejecutar la API:
+3. Abrir Swagger en http://localhost:5106/swagger, hacer login con `admin@dentalcare.com` /
+   `Admin1234!` (solo en Development, ver `appsettings.Development.json`) y usar el botón **Authorize**.
 
-   ```bash
-   dotnet run --project src/DentalCare.Web
-   ```
+Para aplicar las migrations a mano:
+
+```bash
+dotnet ef database update --project src/DentalCare.Infrastructure --startup-project src/DentalCare.Web
+```
+
+### Tests
+
+```bash
+dotnet test
+```
+
+## Deploy en Azure (CI/CD)
+
+El workflow `.github/workflows/ci-cd.yml` corre en cada push / pull request a `main`:
+
+1. **build-test**: restore, build, tests y publish de la API.
+2. **deploy** (solo push a `main`): login en Azure por OIDC, crea el resource group, despliega
+   `infra/main.bicep` (MySQL Flexible Server, Key Vault con los secretos, App Service Plan y Web App
+   con identidad administrada), publica la API y hace un smoke test sobre `/health`.
+
+La API lee sus secretos de variables de ambiente que son **referencias a Key Vault**:
+`Jwt__Key`, `ConnectionStrings__DefaultConnection` y `Seed__Odontologo__Password`.
+
+### Configuración necesaria (una sola vez)
+
+1. Crear una App Registration en Microsoft Entra ID con una *federated credential* para el repositorio
+   (entidad: rama `main` y environment `production`) y darle el rol **Contributor** sobre la suscripción
+   o el resource group.
+2. En GitHub → Settings → Secrets and variables → Actions, crear los secrets:
+
+   | Secret | Valor |
+   |---|---|
+   | `AZURE_CLIENT_ID` | Client ID de la App Registration |
+   | `AZURE_TENANT_ID` | Tenant ID |
+   | `AZURE_SUBSCRIPTION_ID` | ID de la suscripción |
+   | `MYSQL_ADMIN_PASSWORD` | Contraseña del admin de MySQL (8+ caracteres, mayúsculas, minúsculas y números) |
+   | `JWT_KEY` | Secret del JWT (32+ caracteres aleatorios) |
+   | `SEED_ODONTOLOGO_PASSWORD` | Contraseña del odontólogo inicial `admin@dentalcare.com` |
+
+   Opcionalmente, las *variables* `AZURE_RESOURCE_GROUP` (por defecto `rg-dentalcare`) y
+   `AZURE_LOCATION` (por defecto `brazilsouth`).
+3. Hacer push a `main`. La URL pública de la API queda en el resumen del job **deploy**.
 
 ## Secretos
 
-- `Jwt:Key` **no** debe commitearse. En desarrollo se usa el valor de `appsettings.Development.json`
-  (solo local). En Azure va en la variable de ambiente `Jwt__Key` (idealmente desde Key Vault).
-- Cambiar `Password=CAMBIAR` de la cadena de conexión por la real, sin commitearla.
+- Nunca se commitean secretos reales: `appsettings.json` solo tiene valores de ejemplo.
+- `appsettings.Development.json` tiene una clave JWT y una contraseña de admin **solo para desarrollo local**.
+- En Azure todos los secretos viven en Key Vault.

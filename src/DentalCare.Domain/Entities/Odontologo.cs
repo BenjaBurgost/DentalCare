@@ -11,6 +11,9 @@ public class Odontologo
     public string? Telefono { get; set; }
     public string Email { get; set; } = string.Empty;
 
+    /// <summary>Hash de la contraseña (nunca se guarda en texto plano).</summary>
+    public string PasswordHash { get; set; } = string.Empty;
+
     /// <summary>Un odontólogo atiende 0..* turnos.</summary>
     public ICollection<Turno> Turnos { get; set; } = new List<Turno>();
 }

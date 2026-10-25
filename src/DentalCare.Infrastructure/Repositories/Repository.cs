@@ -26,6 +26,9 @@ public class Repository<T> : IRepository<T> where T : class
     public virtual async Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
         => await _dbSet.AsNoTracking().Where(predicate).ToListAsync(ct);
 
+    public virtual Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
+        => _dbSet.AnyAsync(predicate, ct);
+
     public virtual async Task AddAsync(T entity, CancellationToken ct = default)
         => await _dbSet.AddAsync(entity, ct);
 

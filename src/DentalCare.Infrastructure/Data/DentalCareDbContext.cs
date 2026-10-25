@@ -34,6 +34,7 @@ public class DentalCareDbContext : DbContext
             e.Property(p => p.Direccion).HasColumnName("direccion").HasMaxLength(200);
             e.Property(p => p.ObraSocial).HasColumnName("obra_social").HasMaxLength(100);
             e.Property(p => p.NumeroAfiliado).HasColumnName("numero_afiliado").HasMaxLength(50);
+            e.Property(p => p.PasswordHash).HasColumnName("password_hash").HasMaxLength(255).IsRequired();
             e.HasIndex(p => p.Dni).IsUnique();
             e.HasIndex(p => p.Email).IsUnique();
         });
@@ -51,6 +52,7 @@ public class DentalCareDbContext : DbContext
             e.Property(o => o.Especialidad).HasColumnName("especialidad").HasMaxLength(50).IsRequired();
             e.Property(o => o.Telefono).HasColumnName("telefono").HasMaxLength(30);
             e.Property(o => o.Email).HasColumnName("email").HasMaxLength(150).IsRequired();
+            e.Property(o => o.PasswordHash).HasColumnName("password_hash").HasMaxLength(255).IsRequired();
             e.HasIndex(o => o.Dni).IsUnique();
             e.HasIndex(o => o.Matricula).IsUnique();
             e.HasIndex(o => o.Email).IsUnique();
@@ -82,6 +84,9 @@ public class DentalCareDbContext : DbContext
             e.HasIndex(t => t.Codigo).IsUnique();
         });
 
+        // ---------- Consultorio: número único por piso ----------
+        modelBuilder.Entity<Consultorio>().HasIndex(c => new { c.Piso, c.Numero }).IsUnique();
+
         // ---------- Turno ----------
         modelBuilder.Entity<Turno>(e =>
         {
@@ -91,7 +96,9 @@ public class DentalCareDbContext : DbContext
             e.Property(t => t.Fecha).HasColumnName("fecha");
             e.Property(t => t.Hora).HasColumnName("hora");
             e.Property(t => t.Duracion).HasColumnName("duracion");
-            e.Property(t => t.Estado).HasColumnName("estado").HasMaxLength(30).IsRequired();
+            // El enum se guarda como texto ("Pendiente", "Confirmado", ...) para que la tabla sea legible.
+            e.Property(t => t.Estado).HasColumnName("estado").HasMaxLength(30).IsRequired()
+                .HasConversion<string>();
             e.Property(t => t.Motivo).HasColumnName("motivo").HasMaxLength(255);
             e.Property(t => t.Observaciones).HasColumnName("observaciones").HasColumnType("text");
             e.Property(t => t.PacienteId).HasColumnName("id_paciente");
@@ -126,7 +133,11 @@ public class DentalCareDbContext : DbContext
                     right => right.HasOne<Tratamiento>().WithMany().HasForeignKey("id_tratamiento"),
                     left => left.HasOne<Turno>().WithMany().HasForeignKey("id_turno"));
 
-            // Índices de apoyo para el futuro control de superposición de horarios.
+            e.Ignore(t => t.FechaHoraInicio);
+            e.Ignore(t => t.FechaHoraFin);
+            e.Ignore(t => t.OcupaAgenda);
+
+            // Índices de apoyo para el control de superposición de horarios.
             e.HasIndex(t => new { t.OdontologoId, t.Fecha, t.Hora });
             e.HasIndex(t => new { t.ConsultorioId, t.Fecha, t.Hora });
         });

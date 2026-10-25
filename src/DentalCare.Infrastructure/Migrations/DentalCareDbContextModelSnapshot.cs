@@ -50,6 +50,9 @@ namespace DentalCare.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Piso", "Numero")
+                        .IsUnique();
+
                     b.ToTable("consultorio", (string)null);
                 });
 
@@ -97,6 +100,12 @@ namespace DentalCare.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)")
                         .HasColumnName("nombre");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("password_hash");
 
                     b.Property<string>("Telefono")
                         .HasMaxLength(30)
@@ -168,6 +177,12 @@ namespace DentalCare.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)")
                         .HasColumnName("obra_social");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("password_hash");
 
                     b.Property<string>("Telefono")
                         .HasMaxLength(30)
