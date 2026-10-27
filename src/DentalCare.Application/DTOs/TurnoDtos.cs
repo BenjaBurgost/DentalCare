@@ -29,7 +29,7 @@ public class TurnoCreateDto
     [Range(5, 480)] public int? Duracion { get; set; }
 
     [StringLength(255)] public string? Motivo { get; set; }
-    public string? Observaciones { get; set; }
+    [StringLength(1000)] public string? Observaciones { get; set; }
 
     /// <summary>Si quien reserva es un paciente, se ignora y se usa el paciente autenticado.</summary>
     public int PacienteId { get; set; }
@@ -44,7 +44,7 @@ public class TurnoCreateDto
 public class TurnoCambioEstadoDto
 {
     [Required] public EstadoTurno Estado { get; set; }
-    public string? Observaciones { get; set; }
+    [StringLength(1000)] public string? Observaciones { get; set; }
 }
 
 public class TurnoFiltroDto
