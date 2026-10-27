@@ -9,5 +9,5 @@ public class ConsultorioSaveDto
     [Range(1, 9999)] public int Numero { get; set; }
     [Range(0, 200)] public int Piso { get; set; }
     [StringLength(100)] public string? Nombre { get; set; }
-    public string? Equipamiento { get; set; }
+    [StringLength(500)] public string? Equipamiento { get; set; }
 }

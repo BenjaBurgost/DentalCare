@@ -8,7 +8,7 @@ public class TratamientoSaveDto
 {
     [Required, StringLength(50)] public string Codigo { get; set; } = string.Empty;
     [Required, StringLength(100)] public string Nombre { get; set; } = string.Empty;
-    public string? Descripcion { get; set; }
+    [StringLength(1000)] public string? Descripcion { get; set; }
     [Range(0, 99999999)] public decimal Costo { get; set; }
 
     /// <summary>Duración estimada en minutos.</summary>

@@ -159,6 +159,67 @@ public class TurnoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Crear_SinTratamientos_Falla()
+    {
+        var dto = Nuevo("10:00");
+        dto.TratamientoIds = new List<int>();
+        await Assert.ThrowsAsync<DomainException>(() => _service.CreateAsync(dto, _odontologo));
+    }
+
+    [Fact]
+    public async Task Crear_ConDuracionExplicita_IgnoraLaSumaDeTratamientos()
+    {
+        var dto = Nuevo("10:00", tratamientos: new[] { _limpiezaId, _extraccionId }); // suma estimada: 75
+        dto.Duracion = 20;
+
+        var turno = await _service.CreateAsync(dto, _odontologo);
+
+        Assert.Equal(20, turno.Duracion);
+    }
+
+    [Theory]
+    [InlineData(EstadoTurno.Finalizado)]
+    [InlineData(EstadoTurno.Ausente)]
+    public async Task CambiarEstado_NoPermiteFinalizarNiMarcarAusenteUnTurnoFuturo(EstadoTurno estado)
+    {
+        var turno = await _service.CreateAsync(Nuevo("10:00"), _odontologo);
+        await _service.CambiarEstadoAsync(turno.Id, new TurnoCambioEstadoDto { Estado = EstadoTurno.Confirmado }, _odontologo);
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            _service.CambiarEstadoAsync(turno.Id, new TurnoCambioEstadoDto { Estado = estado }, _odontologo));
+    }
+
+    [Fact]
+    public async Task CambiarEstado_FinalizaUnTurnoYaOcurrido()
+    {
+        // Viernes 30/10/2026: ya pasó respecto del "hoy" (lunes 02/11/2026 09:00).
+        var turno = SembrarTurno(new DateOnly(2026, 10, 30), new TimeOnly(10, 0), EstadoTurno.Confirmado);
+
+        var finalizado = await _service.CambiarEstadoAsync(
+            turno.Id, new TurnoCambioEstadoDto { Estado = EstadoTurno.Finalizado }, _odontologo);
+
+        Assert.Equal(EstadoTurno.Finalizado, finalizado.Estado);
+    }
+
+    /// <summary>Inserta un turno directamente en la BD (el servicio no permite crearlos en el pasado).</summary>
+    private Turno SembrarTurno(DateOnly fecha, TimeOnly hora, EstadoTurno estado)
+    {
+        var turno = new Turno
+        {
+            Fecha = fecha,
+            Hora = hora,
+            Duracion = 30,
+            Estado = estado,
+            PacienteId = _pacienteId,
+            OdontologoId = _odontologoId,
+            ConsultorioId = _consultorioId
+        };
+        _ctx.Turnos.Add(turno);
+        _ctx.SaveChanges();
+        return turno;
+    }
+
+    [Fact]
     public async Task CambiarEstado_RespetaElCicloDeVida()
     {
         var turno = await _service.CreateAsync(Nuevo("10:00"), _odontologo);
