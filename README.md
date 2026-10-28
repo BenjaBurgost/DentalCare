@@ -96,17 +96,23 @@ dotnet ef database update --project src/DentalCare.Infrastructure --startup-proj
 dotnet test
 ```
 
-## Deploy en Azure (CI/CD)
+## CI/CD (GitHub Actions)
 
-El workflow `.github/workflows/ci-cd.yml` corre en cada push / pull request a `main`:
+El workflow `.github/workflows/ci-cd.yml` separa la integración continua del despliegue:
 
-1. **build-test**: restore, build, tests y publish de la API.
-2. **deploy** (solo push a `main`): login en Azure por OIDC, crea el resource group, despliega
-   `infra/main.bicep` (MySQL Flexible Server, Key Vault con los secretos, App Service Plan y Web App
-   con identidad administrada), publica la API y hace un smoke test sobre `/health`.
+- **CI (`build-test`)**: corre **en cada push y pull request a `main`**. Hace restore, build en Release,
+  tests y publish de la API, y sube el resultado como artifact.
+- **Deploy (`deploy`)**: **no es automático**. Corre **solo con `workflow_dispatch`** (ejecución manual),
+  después del `build-test`. Hace login en Azure por OIDC, crea el resource group, despliega
+  `infra/main.bicep` (MySQL Flexible Server, Key Vault con los secretos, App Service Plan en SKU **F1**
+  y Web App con identidad administrada), publica la API y hace un smoke test sobre `/health`.
 
 La API lee sus secretos de variables de ambiente que son **referencias a Key Vault**:
 `Jwt__Key`, `ConnectionStrings__DefaultConnection` y `Seed__Odontologo__Password`.
+
+## Cómo desplegar a Azure
+
+El despliegue es **manual**, para tener control de cuándo se publica y no consumir recursos en cada push.
 
 ### Configuración necesaria (una sola vez)
 
@@ -126,7 +132,16 @@ La API lee sus secretos de variables de ambiente que son **referencias a Key Vau
 
    Opcionalmente, las *variables* `AZURE_RESOURCE_GROUP` (por defecto `rg-dentalcare`) y
    `AZURE_LOCATION` (por defecto `brazilsouth`).
-3. Hacer push a `main`. La URL pública de la API queda en el resumen del job **deploy**.
+
+### Ejecutar el despliegue a mano
+
+1. En GitHub, ir a la pestaña **Actions** → workflow **CI/CD**.
+2. Botón **Run workflow**, elegir la rama `main` y confirmar con **Run workflow**.
+3. Se ejecuta primero `build-test` y después `deploy`. La URL pública de la API queda en el resumen
+   del job **deploy** (y como `url` del environment `production`).
+
+El App Service se despliega en el SKU **F1** (plan gratuito). Al ser F1, la Web App queda con
+`alwaysOn` deshabilitado (el Bicep lo resuelve solo según el SKU).
 
 ## Secretos
 
