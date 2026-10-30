@@ -15,10 +15,12 @@ consultorios, tratamientos y turnos, con autenticación JWT por roles.
 | `DentalCare.Infrastructure` | `DentalCareDbContext` (EF Core + MySQL/Pomelo, code first), repositorio genérico + específicos, migrations, JWT, hashing de contraseñas y cliente HTTP de feriados. |
 | `DentalCare.Web` | Controladores, `Program.cs`, manejo global de errores, Swagger. |
 | `tests/DentalCare.Tests` | Tests de servicios e integración (xUnit + SQLite en memoria). |
-| `infra/main.bicep` | Infraestructura de Azure (Web App, MySQL, Key Vault). |
-| `.github/workflows/ci-cd.yml` | Pipeline de CI/CD. |
+| `.github/workflows/ci-cd.yml` | Pipeline de CI/CD (build + tests automáticos, despliegue manual). |
+| `docs/` | Documentación: [`CICD.md`](docs/CICD.md) (despliegue a Azure) y [`PERSISTENCIA.md`](docs/PERSISTENCIA.md) (EF Core y migrations). |
 
 Entidades (según el diagrama de clases corregido): `Paciente`, `Odontologo`, `Consultorio`, `Turno` y `Tratamiento`.
+
+![Diagrama de clases](docs/Class.Diagram/DentalCareUML.jpg)
 La relación Turno–Tratamiento es N:N; EF Core crea la tabla intermedia `turno_tratamiento` sin entidad propia.
 
 ## Cumplimiento de requisitos (Aprobación Directa)
@@ -28,9 +30,9 @@ La relación Turno–Tratamiento es N:N; EF Core crea la tabla intermedia `turno
 | Repositorios, servicios y controladores completos e inyectados | `Infrastructure/Repositories`, `Application/Services`, `Web/Controllers`, `DependencyInjection.cs` de cada capa |
 | Persistencia en BD relacional, code first con EF Core | `DentalCareDbContext` + `Migrations/` (MySQL) |
 | Repositorio genérico | `IRepository<T>` / `Repository<T>`; los específicos heredan de él |
-| CI/CD con GitHub Actions que deploya API y recursos en Azure | `.github/workflows/ci-cd.yml` + `infra/main.bicep` |
+| CI/CD con GitHub Actions (build y tests automáticos, despliegue a Azure) | `.github/workflows/ci-cd.yml`; pasos de infraestructura en [`docs/CICD.md`](docs/CICD.md) |
 | Servicio de terceros con HttpClient Factory | `FeriadoService` (cliente tipado, API pública [Nager.Date](https://date.nager.at)). Se usa en `GET /api/feriados/{anio}` y al reservar turnos (no se permiten turnos en feriados). |
-| Autenticación funcional, secret JWT en variable de ambiente / Key Vault | `AuthController`, `JwtTokenGenerator`. En Azure `Jwt__Key` es una referencia a un secreto de Key Vault. |
+| Autenticación funcional, secret JWT en variable de ambiente | `AuthController`, `JwtTokenGenerator`. En Azure `Jwt__Key` se carga como *application setting* del Web App. |
 
 ## Roles y endpoints
 
@@ -103,48 +105,29 @@ El workflow `.github/workflows/ci-cd.yml` separa la integración continua del de
 - **CI (`build-test`)**: corre **en cada push y pull request a `main`**. Hace restore, build en Release,
   tests y publish de la API, y sube el resultado como artifact.
 - **Deploy (`deploy`)**: **no es automático**. Corre **solo con `workflow_dispatch`** (ejecución manual),
-  después del `build-test`. Hace login en Azure por OIDC, crea el resource group, despliega
-  `infra/main.bicep` (MySQL Flexible Server, Key Vault con los secretos, App Service Plan en SKU **F1**
-  y Web App con identidad administrada), publica la API y hace un smoke test sobre `/health`.
+  después del `build-test`. Instala `dotnet-ef`, aplica las migrations a la base de Azure y publica la
+  API en el App Service (SKU **F1**) con un *publish profile*.
 
-La API lee sus secretos de variables de ambiente que son **referencias a Key Vault**:
-`Jwt__Key`, `ConnectionStrings__DefaultConnection` y `Seed__Odontologo__Password`.
+## Despliegue a Azure
 
-## Cómo desplegar a Azure
+El despliegue es **manual** (`workflow_dispatch`), para controlar cuándo se publica y no consumir recursos
+en cada push. La infraestructura (Resource Group, App Service F1 y MySQL) se crea una sola vez a mano.
 
-El despliegue es **manual**, para tener control de cuándo se publica y no consumir recursos en cada push.
+El paso a paso completo —crear los recursos, configurar el firewall y la conexión SSL de MySQL, cargar
+las *application settings* del Web App y los secretos de GitHub— está en **[`docs/CICD.md`](docs/CICD.md)**.
 
-### Configuración necesaria (una sola vez)
+En resumen, el despliegue usa dos secretos de GitHub:
 
-1. Crear una App Registration en Microsoft Entra ID con una *federated credential* para el repositorio
-   (entidad: rama `main` y environment `production`) y darle el rol **Contributor** sobre la suscripción
-   o el resource group.
-2. En GitHub → Settings → Secrets and variables → Actions, crear los secrets:
+| Secret | Valor |
+|---|---|
+| `AZURE_WEBAPP_PUBLISH_PROFILE` | *Publish profile* descargado del Web App |
+| `DB_CONNECTION_STRING` | Cadena de conexión a la base de Azure (con `SslMode=Required`), para aplicar las migrations |
 
-   | Secret | Valor |
-   |---|---|
-   | `AZURE_CLIENT_ID` | Client ID de la App Registration |
-   | `AZURE_TENANT_ID` | Tenant ID |
-   | `AZURE_SUBSCRIPTION_ID` | ID de la suscripción |
-   | `MYSQL_ADMIN_PASSWORD` | Contraseña del admin de MySQL (8+ caracteres, mayúsculas, minúsculas y números) |
-   | `JWT_KEY` | Secret del JWT (32+ caracteres aleatorios) |
-   | `SEED_ODONTOLOGO_PASSWORD` | Contraseña del odontólogo inicial `admin@dentalcare.com` |
-
-   Opcionalmente, las *variables* `AZURE_RESOURCE_GROUP` (por defecto `rg-dentalcare`) y
-   `AZURE_LOCATION` (por defecto `brazilsouth`).
-
-### Ejecutar el despliegue a mano
-
-1. En GitHub, ir a la pestaña **Actions** → workflow **CI/CD**.
-2. Botón **Run workflow**, elegir la rama `main` y confirmar con **Run workflow**.
-3. Se ejecuta primero `build-test` y después `deploy`. La URL pública de la API queda en el resumen
-   del job **deploy** (y como `url` del environment `production`).
-
-El App Service se despliega en el SKU **F1** (plan gratuito). Al ser F1, la Web App queda con
-`alwaysOn` deshabilitado (el Bicep lo resuelve solo según el SKU).
+Para ejecutarlo: GitHub → **Actions** → workflow **CI/CD** → **Run workflow** sobre `main`.
 
 ## Secretos
 
 - Nunca se commitean secretos reales: `appsettings.json` solo tiene valores de ejemplo.
 - `appsettings.Development.json` tiene una clave JWT y una contraseña de admin **solo para desarrollo local**.
-- En Azure todos los secretos viven en Key Vault.
+- En Azure, `Jwt__Key`, `ConnectionStrings__DefaultConnection` y `Seed__Odontologo__Password` se cargan
+  como *application settings* del Web App (ver [`docs/CICD.md`](docs/CICD.md)).
