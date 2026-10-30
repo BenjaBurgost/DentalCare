@@ -21,6 +21,7 @@ consultorios, tratamientos y turnos, con autenticación JWT por roles.
 Entidades (según el diagrama de clases corregido): `Paciente`, `Odontologo`, `Consultorio`, `Turno` y `Tratamiento`.
 
 ![Diagrama de clases](docs/Class.Diagram/DentalCareUML.jpg)
+
 La relación Turno–Tratamiento es N:N; EF Core crea la tabla intermedia `turno_tratamiento` sin entidad propia.
 
 ## Cumplimiento de requisitos (Aprobación Directa)
