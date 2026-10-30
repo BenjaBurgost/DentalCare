@@ -8,15 +8,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write   # login a Azure por OIDC (sin guardar contraseñas del service principal)
   contents: read
 
 env:
   DOTNET_NOLOGO: true
-  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'rg-dentalcare' }}
-  LOCATION: ${{ vars.AZURE_LOCATION || 'brazilsouth' }}
 
 jobs:
+  # CI: compila y corre los tests en cada push y pull request a main.
   build-test:
     name: Build y tests
     runs-on: ubuntu-latest
@@ -25,7 +23,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          global-json-file: global.json   # fija .NET 8 (global.json)
 
       - name: Restore
         run: dotnet restore
@@ -44,63 +42,44 @@ jobs:
           name: api
           path: ./publish
 
+  # Despliegue a Azure: NO es automático. Se ejecuta a mano con "Run workflow" (workflow_dispatch),
+  # porque todavía no tenemos cuenta de Azure. Aplica las migraciones y publica la API.
   deploy:
-    name: Deploy a Azure
+    name: Deploy a Azure (manual)
     needs: build-test
-    # El despliegue NO es automático: se ejecuta a mano con "Run workflow" (workflow_dispatch).
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: ${{ steps.infra.outputs.webAppUrl }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
 
       - uses: actions/download-artifact@v4
         with:
           name: api
           path: ./publish
 
-      - name: Login en Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Instalar dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 8.0.11
 
-      - name: Resource group
-        run: az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --output none
-
-      - name: Infraestructura (Bicep)
-        id: infra
-        run: |
-          outputs=$(az deployment group create \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/main.bicep \
-            --parameters \
-              appServiceSku=F1 \
-              mysqlAdminPassword="$MYSQL_ADMIN_PASSWORD" \
-              jwtKey="$JWT_KEY" \
-              seedOdontologoPassword="$SEED_PASSWORD" \
-            --query properties.outputs --output json)
-          echo "webAppName=$(echo "$outputs" | jq -r .webAppName.value)" >> "$GITHUB_OUTPUT"
-          echo "webAppUrl=$(echo "$outputs" | jq -r .webAppUrl.value)" >> "$GITHUB_OUTPUT"
+      # Aplica las migraciones pendientes a la base de Azure.
+      # La cadena llega por la variable ConnectionStrings__DefaultConnection, que es la que lee
+      # DentalCareDbContextFactory (en nuestro caso --connection no aplica por usar una design-time factory).
+      - name: Aplicar migraciones (EF Core)
         env:
-          MYSQL_ADMIN_PASSWORD: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
-          JWT_KEY: ${{ secrets.JWT_KEY }}
-          SEED_PASSWORD: ${{ secrets.SEED_ODONTOLOGO_PASSWORD }}
+          ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef database update \
+            --project src/DentalCare.Infrastructure \
+            --startup-project src/DentalCare.Web
 
+      # Publica el artifact en el App Service usando el publish profile (sin guardar credenciales de Azure).
       - name: Deploy de la API
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ steps.infra.outputs.webAppName }}
+          app-name: ${{ vars.AZURE_WEBAPP_NAME || 'dentalcare-api' }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./publish
-
-      - name: Smoke test
-        run: |
-          url="${{ steps.infra.outputs.webAppUrl }}/health"
-          for i in $(seq 1 30); do
-            if curl -fsS "$url"; then echo; echo "API OK en $url"; exit 0; fi
-            echo "Esperando a que la API responda ($i/30)..."; sleep 10
-          done
-          echo "La API no respondió en $url"; exit 1
