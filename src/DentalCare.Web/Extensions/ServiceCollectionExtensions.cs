@@ -10,8 +10,7 @@ namespace DentalCare.Web.Extensions;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Autenticación JWT Bearer. El secret se lee de configuración: en Azure llega por la variable
-    /// de ambiente Jwt__Key, que a su vez es una referencia a un secreto de Azure Key Vault.
+    /// Autenticación JWT Bearer. El secret llega por configuración o variable de ambiente (Jwt__Key).
     /// </summary>
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
