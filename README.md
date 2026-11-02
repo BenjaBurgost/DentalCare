@@ -126,6 +126,19 @@ En resumen, el despliegue usa dos secretos de GitHub:
 
 Para ejecutarlo: GitHub → **Actions** → workflow **CI/CD** → **Run workflow** sobre `main`.
 
+## Uso de IA
+
+Se usó Claude (asistente de IA y Claude Code) como copiloto de implementación, siguiendo el nivel 2 de la guía de la cátedra. Partes asistidas por IA: estructura inicial de la solución, servicios, controladores, tests, workflow de CI/CD, seed de datos de prueba y documentación.
+
+Validaciones realizadas por el grupo:
+- Revisión del diff antes de cada commit.
+- `dotnet build` y `dotnet test` (36 tests) después de cada cambio.
+- Pruebas manuales de los endpoints en Swagger, con los distintos roles.
+- Verificación de las migraciones contra una base temporal.
+- CI en GitHub Actions en cada push y pull request.
+
+Las decisiones de diseño (diagrama de clases, .NET 8 con MySQL, despliegue manual a Azure) las tomó el grupo.
+
 ## Secretos
 
 - Nunca se commitean secretos reales: `appsettings.json` solo tiene valores de ejemplo.
