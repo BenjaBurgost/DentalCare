@@ -4,7 +4,7 @@ public class JwtOptions
 {
     public const string Section = "Jwt";
 
-    /// <summary>Secret de firma. En Azure viene de Key Vault mediante la variable de ambiente Jwt__Key.</summary>
+    /// <summary>Secret de firma. Llega por configuración o variable de ambiente (Jwt__Key).</summary>
     public string Key { get; set; } = string.Empty;
     public string Issuer { get; set; } = "DentalCare.Api";
     public string Audience { get; set; } = "DentalCare.Clients";

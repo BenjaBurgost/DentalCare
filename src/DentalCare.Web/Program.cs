@@ -26,7 +26,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // Aplicación: servicios de negocio
 builder.Services.AddApplication();
 
-// Autenticación JWT. El secret se lee de configuración / variable de ambiente Jwt__Key (Key Vault en Azure).
+// Autenticación JWT. El secret llega por configuración o variable de ambiente (Jwt__Key).
 builder.Services.AddJwtAuthentication(builder.Configuration);
 
 builder.Services.AddDentalCareHealthChecks();
