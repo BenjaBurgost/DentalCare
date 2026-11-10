@@ -145,3 +145,14 @@ Las decisiones de diseño (diagrama de clases, .NET 8 con MySQL, despliegue manu
 - `appsettings.Development.json` tiene una clave JWT y una contraseña de admin **solo para desarrollo local**.
 - En Azure, `Jwt__Key`, `ConnectionStrings__DefaultConnection` y `Seed__Odontologo__Password` se cargan
   como *application settings* del Web App (ver [`docs/CICD.md`](docs/CICD.md)).
+
+## Integrantes y aportes
+
+El proyecto fue desarrollado en conjunto por los cuatro integrantes del grupo:
+
+- Amaya Lara ([@AmayaLara](https://github.com/AmayaLara))
+- Benjamín Burgos ([@BenjaBurgost](https://github.com/BenjaBurgost))
+- Matías Mendez ([@MendezMatiass](https://github.com/MendezMatiass))
+- Sebastián Wilson ([@WilsonM7](https://github.com/WilsonM7))
+
+En grupo definimos el relevamiento, los casos de uso y el diagrama de clases, y revisamos y probamos la implementación de la API.
